@@ -222,8 +222,6 @@
                       frag_reasm,
                       invalid_ttl_to_controller]}).
 
--enum({miss_send_len, [{no_buffer, 16#ffff}]}).
-
 %% Flow Table Configuration ----------------------------------------------------
 
 -enum({table, [{all, 16#ff}]}).

@@ -877,15 +877,13 @@ decode_body(features_reply, Binary) ->
 decode_body(get_config_request, _) ->
     #ofp_get_config_request{};
 decode_body(get_config_reply, Binary) ->
-    <<FlagsBin:16/bits, MissInt:16>> = Binary,
+    <<FlagsBin:16/bits, Miss:16>> = Binary,
     Flags = binary_to_flags(config_flags, FlagsBin),
-    Miss = get_id(miss_send_len, MissInt),
     #ofp_get_config_reply{flags = Flags,
                           miss_send_len = Miss};
 decode_body(set_config, Binary) ->
-    <<FlagsBin:16/bits, MissInt:16>> = Binary,
+    <<FlagsBin:16/bits, Miss:16>> = Binary,
     Flags = binary_to_flags(config_flags, FlagsBin),
-    Miss = get_id(miss_send_len, MissInt),
     #ofp_set_config{flags = Flags, miss_send_len = Miss};
 decode_body(packet_in, Binary) ->
     <<BufferIdInt:32, TotalLen:16, ReasonInt:8,
