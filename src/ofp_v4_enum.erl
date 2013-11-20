@@ -109,6 +109,11 @@
                        pause,
                        pause_asym]}).
 
+-enum({experimeter_id, [{nx,  16#00002300},    %% Nicira
+                        {bsn, 16#005c16c7},    %% Big Switch Networks
+                        {onf, 16#4f4e4600}]}). %% OpenFlow Extensions for
+                                               %% 1.3.X Pack 1
+
 %% Queue Structures ------------------------------------------------------------
 
 %% Note: Not in the specification
