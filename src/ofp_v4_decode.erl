@@ -82,25 +82,40 @@ decode_match_field(<<Header:4/bytes, Binary/bytes>>) ->
       Length:8>> = Header,
     Class = ofp_v4_enum:to_atom(oxm_class, ClassInt),
     HasMask = (HasMaskInt =:= 1),
-    {Field, BitLength} = case Class of
+    {Class2, Field, BitLength, ByteLength, Binary2} = case Class of
         openflow_basic ->
             F = ofp_v4_enum:to_atom(oxm_ofb_match_fields, FieldInt),
-            {F, ofp_v4_map:tlv_length(F)};
+            {Class, F, ofp_v4_map:tlv_length(F), Length, Binary};
+        experimenter ->
+            <<ExpInt:32, Binary3/bytes>> = Binary,
+            Exp = get_id(experimenter_id, ExpInt),
+            case Exp of
+                onf ->
+                    %% EXT-256
+                    %% see the comment in encode_struct/1 for the weirdness
+                    <<ExpTypeInt:16, Binary4/bytes>> = Binary3,
+                    F = get_id(oxm_onf_match_fields, ExpTypeInt),
+                    %% reduce length for:
+                    %%    uint32_t experimenter;
+                    %%    uint16_t exp_type;
+                    {{Class, Exp},
+                     F, ofp_v4_map:tlv_length(F), Length - 6, Binary4}
+            end;
         _ ->
-            {FieldInt, Length * 8}
+            {Class, FieldInt, Length * 8, Length, Binary}
     end,
     case HasMask of
         false ->
-            <<Value:Length/bytes, Rest/bytes>> = Binary,
+            <<Value:ByteLength/bytes, Rest/bytes>> = Binary2,
             TLV = #ofp_field{value = ofp_utils:uncut_bits(Value, BitLength)};
         true ->
-            Length2 = (Length div 2),
-            <<Value:Length2/bytes, Mask:Length2/bytes,
-              Rest/bytes>> = Binary,
+            ByteLength2 = (ByteLength div 2),
+            <<Value:ByteLength2/bytes, Mask:ByteLength2/bytes,
+              Rest/bytes>> = Binary2,
             TLV = #ofp_field{value = ofp_utils:uncut_bits(Value, BitLength),
                              mask = ofp_utils:uncut_bits(Mask, BitLength)}
     end,
-    {TLV#ofp_field{class = Class,
+    {TLV#ofp_field{class = Class2,
                    name = Field,
                    has_mask = HasMask}, Rest}.
 
