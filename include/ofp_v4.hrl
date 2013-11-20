@@ -289,10 +289,12 @@
 
 %% OXM classes (A 2.3.3) -------------------------------------------------------
 
+-type experimenter() :: atom().
+
 -type ofp_field_class() :: nxm_0
                          | nxm_1
                          | openflow_basic
-                         | experimenter.
+                         | {experimenter, experimenter()}.
 
 %% Flow Match Fields (A 2.3.7) -------------------------------------------------
 
@@ -337,7 +339,9 @@
                              | tunnel_id
                              | ipv6_exthdr.
 
--type ofp_field_type() :: openflow_basic_type().
+-type onf_experimenter_type() :: pbb_uca.  %% EXT-256
+
+-type ofp_field_type() :: openflow_basic_type() | onf_experimenter_type().
 
 -type ofp_vlan_id() :: present
                      | none.

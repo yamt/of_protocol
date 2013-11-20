@@ -53,10 +53,24 @@ encode_struct(#ofp_match{fields = Fields}) ->
     <<1:16, Length:16, FieldsBin/bytes, 0:Padding>>;
 encode_struct(#ofp_field{class = Class, name = Field, has_mask = HasMask,
                          value = Value, mask = Mask}) ->
-    ClassInt = ofp_v4_enum:to_int(oxm_class, Class),
+    ClassInt = case Class of
+        {C, _} ->
+            ofp_v4_enum:to_int(oxm_class, C);
+        C ->
+            ofp_v4_enum:to_int(oxm_class, C)
+    end,
     {FieldInt, BitLength, WireBitLength} = case Class of
         openflow_basic ->
             {ofp_v4_enum:to_int(oxm_ofb_match_fields, Field),
+             ofp_v4_map:tlv_length(Field),
+             ofp_v4_map:tlv_wire_length(Field)};
+        {experimenter, onf} ->
+            %% EXT-256
+            %% the definition of onf_oxm_pbb_uca is a bit weird.
+            %% instead of oxm_field, an additional field "exp_type" is
+            %% used to specify the field type.  it's unclear what value
+            %% oxm_field should be.
+            {0,
              ofp_v4_map:tlv_length(Field),
              ofp_v4_map:tlv_wire_length(Field)};
         _ ->
@@ -69,14 +83,25 @@ encode_struct(#ofp_field{class = Class, name = Field, has_mask = HasMask,
         true ->
             HasMaskInt = 1,
             Mask2 = ofp_utils:cut_bits(Mask, BitLength, WireBitLength2),
-            Rest = <<Value2/bytes, Mask2/bytes>>,
-            Len2 = byte_size(Value2) * 2;
+            Rest = <<Value2/bytes, Mask2/bytes>>;
         false ->
             HasMaskInt = 0,
-            Rest = <<Value2/bytes>>,
-            Len2 = byte_size(Value2)
+            Rest = <<Value2/bytes>>
     end,
-    <<ClassInt:16, FieldInt:7, HasMaskInt:1, Len2:8, Rest/bytes>>;
+    Rest2 = case Class of
+        {experimenter, Exp} ->
+            ExpId = get_id(experimenter_id, Exp),
+            Rest3 = case Exp of
+                onf ->
+                    ExpTypeInt = get_id(oxm_onf_match_fields, Field),
+                    <<ExpTypeInt:16, Rest/bytes>>
+            end,
+            <<ExpId:32, Rest3/bytes>>;
+        _ ->
+            Rest
+    end,
+    Len2 = byte_size(Rest2),
+    <<ClassInt:16, FieldInt:7, HasMaskInt:1, Len2:8, Rest2/bytes>>;
 
 encode_struct(#ofp_port{port_no = PortNo, hw_addr = HWAddr, name = Name,
                         config = Config, state = State, curr = Curr,
