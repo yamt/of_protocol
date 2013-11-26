@@ -344,7 +344,21 @@ encode_struct(#ofp_meter_config{flags = Flags, meter_id = MeterId,
     FlagsBin = flags_to_binary(meter_flag, Flags, 2),
     BandsBin = encode_list(Bands),
     Length = ?METER_CONFIG_SIZE + byte_size(BandsBin),
-    <<Length:16, FlagsBin:16/bits, MeterIdInt:32, BandsBin/bytes>>.
+    <<Length:16, FlagsBin:16/bits, MeterIdInt:32, BandsBin/bytes>>;
+encode_struct(#onf_flow_monitor{id = Id,
+                                flags = Flags,
+                                out_port = OutPort,
+                                table_id = TableId,
+                                fields = Fields}) ->
+    FieldsBin = encode_list(Fields),
+    MatchLen = byte_size(FieldsBin),
+    Padding = ofp_utils:padding(MatchLen, 8) * 8,
+    FlagsBin = flags_to_binary(onf_flow_monitor_flags, Flags, 2),
+    OutPortInt = get_id(port_no, OutPort),
+    TableIdInt = get_id(table, TableId),
+    <<Id:32, FlagsBin:2/bytes, MatchLen:16,
+      OutPortInt:32, TableIdInt:8, 0:24,
+      FieldsBin/bytes, 0:Padding>>.
 
 encode_async_masks({PacketInMask1, PacketInMask2},
                    {PortStatusMask1, PortStatusMask2},
@@ -686,8 +700,9 @@ encode_body(#ofp_experimenter_request{flags = Flags,
                                       exp_type = ExpType, data = Data}) ->
     TypeInt = ofp_v4_enum:to_int(multipart_type, experimenter),
     FlagsBin = flags_to_binary(multipart_request_flags, Flags, 2),
+    ExperimenterInt = get_id(experimenter_id, Experimenter),
     <<TypeInt:16, FlagsBin:2/bytes, 0:32,
-      Experimenter:32, ExpType:32, Data/bytes>>;
+      ExperimenterInt:32, ExpType:32, Data/bytes>>;
 encode_body(#ofp_experimenter_reply{flags = Flags,
                                     experimenter = Experimenter,
                                     exp_type = ExpType, data = Data}) ->
@@ -732,6 +747,17 @@ encode_body(#ofp_meter_mod{command = Command,
     MeterIdInt = get_id(meter_id, MeterId),
     BandsBin = encode_list(Bands),
     <<CommandInt:16, FlagsBin:2/bytes, MeterIdInt:32, BandsBin/bytes>>;
+
+%% ONF EXT-187
+encode_body(#onf_flow_monitor_request{flags = Flags,
+                                      body = Body}) ->
+    Data = encode_list(Body),
+    ExpTypeInt = get_id(onf_multipart_msg_type, onf_flow_monitor),
+    encode_body(#ofp_experimenter_request{flags=Flags,
+                                          experimenter=onf,
+                                          exp_type=ExpTypeInt,
+                                          data=Data});
+
 encode_body(Other) ->
     throw({bad_message, Other}).
 
@@ -1087,6 +1113,8 @@ type_int(#ofp_get_async_reply{}) ->
 type_int(#ofp_set_async{}) ->
     ofp_v4_enum:to_int(type, set_async);
 type_int(#ofp_meter_mod{}) ->
-    ofp_v4_enum:to_int(type, meter_mod).
+    ofp_v4_enum:to_int(type, meter_mod);
+type_int(#onf_flow_monitor_request{}) ->
+    ofp_v4_enum:to_int(type, multipart_request).
 
 

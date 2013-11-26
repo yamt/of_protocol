@@ -527,3 +527,20 @@
 %% Echo Reply ------------------------------------------------------------------
 
 %% Experimenter ----------------------------------------------------------------
+%% ONF Experimenter
+
+-enum({onf_multipart_msg_type, [{onf_flow_monitor, 1870}]}).
+
+%% EXT-187
+
+-enum({onf_flow_monitor_flags, [initial,
+                                add,
+                                delete,
+                                modify,
+                                actions,
+                                own]}).
+
+-enum({onf_flow_update_event, [added,
+                               deleted,
+                               modified,
+                               abbrev]}).

@@ -1567,3 +1567,64 @@
           data = <<>> :: binary()
          }).
 -type ofp_experimenter() :: #ofp_experimenter{}.
+
+
+%%%-----------------------------------------------------------------------------
+%%% ONF Experimenter
+%%%-----------------------------------------------------------------------------
+%%% EXT-187
+
+%% ONFMP_FLOW_MONITOR request
+
+-type onf_flow_monitor_flags() :: initial
+                                | add
+                                | delete
+                                | modify
+                                | actions
+                                | own.
+
+-record(onf_flow_monitor, {
+          id :: integer(),
+          flags = [] :: onf_flow_monitor_flags(),
+          out_port = any :: ofp_port_no(),
+          table_id = all :: ofp_table_id(),
+          fields = []  :: [ofp_field()]
+         }).
+
+-type onf_flow_monitor() :: #onf_flow_monitor{}.
+
+-record(onf_flow_monitor_request, {
+          flags = [] :: [ofp_multipart_request_flag()],
+          body = [] :: [onf_flow_monitor()]
+         }).
+
+%% ONFMP_FLOW_MONITOR reply
+
+-type onf_flow_update_event() :: added
+                               | deleted
+                               | modified
+                               | abbrev.
+
+-record(onf_flow_update_full, {
+          event :: onf_flow_update_event(),
+          reason :: ofp_flow_removed_reason(),
+          priority = 0 :: integer(),
+          idle_timeout = 0 :: integer(),
+          hard_timeout = 0 :: integer(),
+          table_id = all :: ofp_table_id(),
+          cookie = <<0:64>> :: binary(),
+          fields = []  :: [ofp_field()],
+          instructions = [] :: [ofp_instruction()]
+         }).
+
+-record(onf_flow_update_abbrev, {
+          xid :: integer()
+         }).
+
+-type onf_flow_update() :: #onf_flow_update_full{}
+                         | #onf_flow_update_abbrev{}.
+
+-record(onf_flow_update, {
+          flags = [] :: [ofp_multipart_reply_flag()],
+          body = [] :: [onf_flow_update()]
+         }).

@@ -812,6 +812,27 @@ decode_meter_config_list(Binary, MeterConfigs) ->
                                     bands = Bands},
     decode_meter_config_list(Rest2, [MeterConfig | MeterConfigs]).
 
+decode_flow_monitor(Binary) ->
+    decode_flow_monitor(Binary, []).
+
+decode_flow_monitor(<<>>, Acc) ->
+    lists:reverse(Acc);
+decode_flow_monitor(<<Id:32, FlagsBin:2/bytes, MatchLen:16,
+                      OutPortInt:32, TableIdInt:8, _:24,
+                      Rest/bytes>>, Acc) ->
+    Flags = binary_to_flags(onf_flow_monitor_flags, FlagsBin),
+    OutPort = get_id(port_no, OutPortInt),
+    TableId = get_id(table, TableIdInt),
+    PadBits = ofp_utils:padding(MatchLen, 8) * 8,
+    <<FieldsBin:MatchLen/bytes, _:PadBits, Rest2/bytes>> = Rest,
+    Fields = decode_match_fields(FieldsBin),
+    Rec = #onf_flow_monitor{id = Id,
+                            flags = Flags,
+                            out_port = OutPort,
+                            table_id = TableId,
+                            fields = Fields},
+    decode_flow_monitor(Rest2, [Rec | Acc]).
+
 decode_bitmap(_, Index, _, Acc) when Index >= 32 ->
     Acc;
 decode_bitmap(Int, Index, Base, Acc) when Int band (1 bsl Index) == 0 ->
@@ -1065,11 +1086,24 @@ decode_body(multipart_request, Binary) ->
             #ofp_meter_features_request{flags = Flags};
         experimenter ->
             DataLength = size(Binary) - ?EXPERIMENTER_STATS_REQUEST_SIZE + ?OFP_HEADER_SIZE,
-            <<Experimenter:32, ExpType:32,
+            <<ExperimenterInt:32, ExpTypeInt:32,
               ExpData:DataLength/bytes>> = Data,
-            #ofp_experimenter_request{flags = Flags,
-                                      experimenter = Experimenter,
-                                      exp_type = ExpType, data = ExpData}
+            Experimenter = get_id(experimenter_id, ExperimenterInt),
+            case Experimenter of
+                onf ->
+                    ExpType = get_id(onf_multipart_msg_type, ExpTypeInt),
+                    case ExpType of
+                        onf_flow_monitor ->
+                            Body = decode_flow_monitor(ExpData),
+                            #onf_flow_monitor_request{flags = Flags,
+                                                      body = Body}
+                    end;
+                _ ->
+                    #ofp_experimenter_request{flags = Flags,
+                                              experimenter = Experimenter,
+                                              exp_type = ExpTypeInt,
+                                              data = ExpData}
+            end
     end;
 decode_body(multipart_reply, Binary) ->
     <<TypeInt:16, FlagsBin:16/bits, _Pad:32, Data/bytes>> = Binary,
@@ -1229,6 +1263,7 @@ decode_body(meter_mod, Binary) ->
     Bands = decode_bands(BandsBin),
     #ofp_meter_mod{command = Command, flags = Flags, meter_id = MeterId,
                    bands = Bands}.
+
 
 %%%-----------------------------------------------------------------------------
 %%% Internal functions
